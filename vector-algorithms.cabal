@@ -53,7 +53,7 @@ source-repository head
   location: https://github.com/erikd/vector-algorithms/
 
 library
-  hs-source-dirs: src
+  hs-source-dirs: src/classic
 
   build-depends: base >= 4.5 && < 5,
                  vector >= 0.6 && < 0.13,
