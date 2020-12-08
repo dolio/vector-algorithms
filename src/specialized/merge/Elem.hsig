@@ -1,0 +1,11 @@
+
+signature Elem
+  ( Elem
+  , compare
+  ) where
+
+import Prelude hiding (Ord(..))
+
+data Elem
+
+compare :: Elem -> Elem -> Ordering

@@ -14,6 +14,8 @@ import Data.List (maximumBy)
 
 import Data.Vector.Unboxed.Mutable
 
+import qualified MVector.Unboxed.Unsafe.Word as UW
+
 import qualified Data.Vector.Algorithms.Insertion    as INS
 import qualified Data.Vector.Algorithms.Intro        as INT
 import qualified Data.Vector.Algorithms.Heap         as H
@@ -21,6 +23,9 @@ import qualified Data.Vector.Algorithms.Merge        as M
 import qualified Data.Vector.Algorithms.Radix        as R
 import qualified Data.Vector.Algorithms.AmericanFlag as AF
 import qualified Data.Vector.Algorithms.Tim          as T
+
+import qualified Vector.Algorithms.Sort.Insertion as BINS
+import qualified Vector.Algorithms.Sort.Merge as BM
 
 import System.Environment
 import System.Console.GetOpt
@@ -45,19 +50,20 @@ displayTime s elapsed = putStrLn $
 run :: String -> IO Integer -> IO ()
 run s t = t >>= displayTime s
 
-sortSuite :: String -> GenIO -> Int -> (MVector RealWorld Int -> IO ()) -> IO ()
+sortSuite :: String -> GenIO -> Int -> (MVector RealWorld Word -> IO ()) -> IO ()
 sortSuite str g n sort = do
+  let k = fromIntegral n
   arr <- new n
   putStrLn $ "Testing: " ++ str
-  run "Random            " $ speedTest arr n (rand g >=> modulo n) sort
+  run "Random            " $ speedTest arr n (rand g >=> modulo k) sort
   run "Sorted            " $ speedTest arr n ascend sort
-  run "Reverse-sorted    " $ speedTest arr n (descend n) sort
+  run "Reverse-sorted    " $ speedTest arr n (descend k) sort
   run "Random duplicates " $ speedTest arr n (rand g >=> modulo 1000) sort
-  let m = 4 * (n `div` 4)
-  run "Median killer     " $ speedTest arr m (medianKiller m) sort
+  let m = 4 * (k `div` 4)
+  run "Median killer     " $ speedTest arr n (medianKiller m) sort
 
 partialSortSuite :: String -> GenIO -> Int -> Int
-                 -> (MVector RealWorld Int -> Int -> IO ()) -> IO ()
+                 -> (MVector RealWorld Word -> Int -> IO ()) -> IO ()
 partialSortSuite str g n k sort = sortSuite str g n (\a -> sort a k)
 
 -- -----------------
@@ -108,7 +114,7 @@ options = [ Option ['A']     ["algorithm"] (ReqArg parseAlgo "ALGO")
 
 parseAlgo :: String -> Options -> Either String Options
 parseAlgo "None" o = Right $ o { algos = [] }
-parseAlgo "All"  o = Right $ o { algos = [DoNothing .. AmericanFlagSort] }
+parseAlgo "All"  o = Right $ o { algos = [DoNothing .. TimSort] }
 parseAlgo s      o = leftMap (\e -> "Unrecognized algorithm `" ++ e ++ "'")
                      . fmap (\v -> o { algos = v : algos o }) $ readEither s
 
@@ -130,61 +136,66 @@ readEither s = case reads s of
 
 runTest :: GenIO -> Int -> Int -> Algorithm -> IO ()
 runTest g n k alg = case alg of
-  DoNothing          -> sortSuite        "no algorithm"          g n   noalgo
-  Allocate           -> sortSuite        "allocate"              g n   alloc
-  InsertionSort      -> sortSuite        "insertion sort"        g n   insertionSort
-  IntroSort          -> sortSuite        "introsort"             g n   introSort
-  IntroPartialSort   -> partialSortSuite "partial introsort"     g n k introPSort
-  IntroSelect        -> partialSortSuite "introselect"           g n k introSelect
-  HeapSort           -> sortSuite        "heap sort"             g n   heapSort
-  HeapPartialSort    -> partialSortSuite "partial heap sort"     g n k heapPSort
-  HeapSelect         -> partialSortSuite "heap select"           g n k heapSelect
-  MergeSort          -> sortSuite        "merge sort"            g n   mergeSort
-  RadixSort          -> sortSuite        "radix sort"            g n   radixSort
-  AmericanFlagSort   -> sortSuite        "flag sort"             g n   flagSort
-  TimSort            -> sortSuite        "tim sort"              g n   timSort
+  DoNothing -> sortSuite "no algorithm" g n noalgo
+  Allocate -> sortSuite "allocate" g n alloc
+  InsertionSort -> do
+    sortSuite "insertion sort/100: clasic" g (n`div`100) insertionSort
+    sortSuite "insertion sort/100: specialized" g (n`div`100) (BINS.sort . UW.MV)
+  IntroSort -> sortSuite "introsort" g n introSort
+  IntroSelect -> partialSortSuite "introselect" g n k introSelect
+  HeapSort -> sortSuite "heap sort" g n heapSort
+  HeapPartialSort -> partialSortSuite "partial heap sort" g n k heapPSort
+  HeapSelect -> partialSortSuite "heap select" g n k heapSelect
+  MergeSort -> do
+    sortSuite "merge sort: classic" g n mergeSort
+    sortSuite "merge sort: specialized" g n (BM.sort . UW.MV)
+  RadixSort -> sortSuite "radix sort" g n radixSort
+  TimSort -> sortSuite "tim sort" g n   timSort
+  AmericanFlagSort -> sortSuite "flag sort" g n flagSort
+  IntroPartialSort ->
+    partialSortSuite "partial introsort" g n k introPSort
 
-mergeSort :: MVector RealWorld Int -> IO ()
+mergeSort :: MVector RealWorld Word -> IO ()
 mergeSort v = M.sort v
 {-# NOINLINE mergeSort #-}
 
-introSort :: MVector RealWorld Int -> IO ()
+introSort :: MVector RealWorld Word -> IO ()
 introSort v = INT.sort v
 {-# NOINLINE introSort #-}
 
-introPSort :: MVector RealWorld Int -> Int -> IO ()
+introPSort :: MVector RealWorld Word -> Int -> IO ()
 introPSort v k = INT.partialSort v k
 {-# NOINLINE introPSort #-}
 
-introSelect :: MVector RealWorld Int -> Int -> IO ()
+introSelect :: MVector RealWorld Word -> Int -> IO ()
 introSelect v k = INT.select v k
 {-# NOINLINE introSelect #-}
 
-heapSort :: MVector RealWorld Int -> IO ()
+heapSort :: MVector RealWorld Word -> IO ()
 heapSort v = H.sort v
 {-# NOINLINE heapSort #-}
 
-heapPSort :: MVector RealWorld Int -> Int -> IO ()
+heapPSort :: MVector RealWorld Word -> Int -> IO ()
 heapPSort v k = H.partialSort v k
 {-# NOINLINE heapPSort #-}
 
-heapSelect :: MVector RealWorld Int -> Int -> IO ()
+heapSelect :: MVector RealWorld Word -> Int -> IO ()
 heapSelect v k = H.select v k
 {-# NOINLINE heapSelect #-}
 
-insertionSort :: MVector RealWorld Int -> IO ()
+insertionSort :: MVector RealWorld Word -> IO ()
 insertionSort v = INS.sort v
 {-# NOINLINE insertionSort #-}
 
-radixSort :: MVector RealWorld Int -> IO ()
+radixSort :: MVector RealWorld Word -> IO ()
 radixSort v = R.sort v
 {-# NOINLINE radixSort #-}
 
-flagSort :: MVector RealWorld Int -> IO ()
+flagSort :: MVector RealWorld Word -> IO ()
 flagSort v = AF.sort v
 {-# NOINLINE flagSort #-}
 
-timSort :: MVector RealWorld Int -> IO ()
+timSort :: MVector RealWorld Word -> IO ()
 timSort v = T.sort v
 {-# NOINLINE timSort #-}
 
