@@ -99,9 +99,6 @@ library heap
   exposed-modules:
     Vector.Algorithms.Sort.Heap
 
-  if flag(dump-simpl)
-    ghc-options: -ddump-simpl -ddump-to-file
-
 library structures
   import: specialized
   hs-source-dirs: src/specialized/structures
