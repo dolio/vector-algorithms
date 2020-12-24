@@ -29,6 +29,7 @@ module Vector.Algorithms.Sort.Optimal
 
 import Prelude hiding (read, Ord(..))
 
+import Control.Monad.ST (ST)
 import Control.Monad.Primitive (PrimMonad(PrimState))
 
 import Elem
@@ -38,6 +39,8 @@ import MVector
 -- given array using the comparison.
 sort2ByOffset :: PrimMonad m => MVector (PrimState m) -> Int -> m ()
 sort2ByOffset a off = sort2ByIndex a off (off + 1)
+{-# specialize sort2ByOffset :: MVector s -> Int -> ST s () #-}
+{-# specialize sort2ByOffset :: MVector (PrimState IO) -> Int -> IO () #-}
 
 -- | Sorts the elements at the two given indices using the comparison.
 -- This is essentially a compare-and-swap, although the first index is
@@ -49,10 +52,16 @@ sort2ByIndex a i j = do
   case compare a0 a1 of
     GT -> write a i a1 >> write a j a0
     _  -> return ()
+{-# specialize sort2ByIndex :: MVector s -> Int -> Int -> ST s () #-}
+{-# specialize
+    sort2ByIndex :: MVector (PrimState IO) -> Int -> Int -> IO ()
+  #-}
 
 -- | Sorts the three elements starting at the given offset in the array.
 sort3ByOffset :: PrimMonad m => MVector (PrimState m) -> Int -> m ()
 sort3ByOffset a off = sort3ByIndex a off (off + 1) (off + 2)
+{-# specialize sort3ByOffset :: MVector s -> Int -> ST s () #-}
+{-# specialize sort3ByOffset :: MVector (PrimState IO) -> Int -> IO () #-}
 
 -- | Sorts the elements at the three given indices. The indices are
 -- assumed to be given from lowest to highest, so if 'l < m < u' then
@@ -82,11 +91,20 @@ sort3ByIndex a i j k = do
         _  -> do write a j a2
                  write a k a1
       _  -> return ()
+{-# specialize
+    sort3ByIndex
+      :: MVector s -> Int -> Int -> Int -> ST s () #-}
+{-# specialize
+    sort3ByIndex
+      :: MVector (PrimState IO) -> Int -> Int -> Int -> IO ()
+  #-}
 
 -- | Sorts the four elements beginning at the offset.
 sort4ByOffset :: PrimMonad m => MVector (PrimState m) -> Int -> m ()
 sort4ByOffset a off
   = sort4ByIndex a off (off + 1) (off + 2) (off + 3)
+{-# specialize sort4ByOffset :: MVector s -> Int -> ST s () #-}
+{-# specialize sort4ByOffset :: MVector (PrimState IO) -> Int -> IO () #-}
 
 -- The horror...
 
@@ -222,3 +240,8 @@ sort4ByIndex a i j k l = do
                    -- write a k a2
                    -- write a l a3
                    return ()
+{-# specialize
+    sort4ByIndex :: MVector s -> Int -> Int -> Int -> Int -> ST s () #-}
+{-# specialize
+    sort4ByIndex
+      :: MVector (PrimState IO) -> Int -> Int -> Int -> Int -> IO () #-}
