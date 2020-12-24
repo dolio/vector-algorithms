@@ -7,6 +7,7 @@ module MVector.Unboxed.Unsafe.Int
   , slice
   , copy
   , length
+  , swap
   ) where
 
 import Prelude hiding (read, length)
@@ -44,3 +45,6 @@ copy
 copy (MV v) (MV u) = U.unsafeCopy v u
 {-# inline copy #-}
 
+swap :: PrimMonad m => MVector (PrimState m) -> Int -> Int -> m ()
+swap (MV v) i j = U.unsafeSwap v i j
+{-# inline swap #-}

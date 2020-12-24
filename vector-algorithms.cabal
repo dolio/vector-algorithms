@@ -88,6 +88,20 @@ library merge
   exposed-modules:
     Vector.Algorithms.Sort.Merge
 
+library heap
+  import: specialized
+  hs-source-dirs: src/specialized/heap
+
+  signatures: Elem MVector
+  
+  build-depends: optimal
+
+  exposed-modules:
+    Vector.Algorithms.Sort.Heap
+
+  if flag(dump-simpl)
+    ghc-options: -ddump-simpl -ddump-to-file
+
 library structures
   import: specialized
   hs-source-dirs: src/specialized/structures
@@ -168,10 +182,15 @@ benchmark simple-bench
 
   build-depends:
     base, mwc-random, vector, vector-algorithms,
-    merge, insertion, structures
+    merge, heap, insertion, structures
 
   mixins:
     merge
+    requires
+      ( Elem as Elem.Word
+      , MVector as MVector.Unboxed.Unsafe.Word
+      ),
+    heap
     requires
       ( Elem as Elem.Word
       , MVector as MVector.Unboxed.Unsafe.Word

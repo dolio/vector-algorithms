@@ -26,6 +26,7 @@ import qualified Data.Vector.Algorithms.Tim          as T
 
 import qualified Vector.Algorithms.Sort.Insertion as BINS
 import qualified Vector.Algorithms.Sort.Merge as BM
+import qualified Vector.Algorithms.Sort.Heap as BH
 
 import System.Environment
 import System.Console.GetOpt
@@ -143,9 +144,16 @@ runTest g n k alg = case alg of
     sortSuite "insertion sort/100: specialized" g (n`div`100) (BINS.sort . UW.MV)
   IntroSort -> sortSuite "introsort" g n introSort
   IntroSelect -> partialSortSuite "introselect" g n k introSelect
-  HeapSort -> sortSuite "heap sort" g n heapSort
-  HeapPartialSort -> partialSortSuite "partial heap sort" g n k heapPSort
-  HeapSelect -> partialSortSuite "heap select" g n k heapSelect
+  HeapSort -> do
+    sortSuite "heap sort: classic" g n heapSort
+    sortSuite "heap sort: specialized" g n (BH.sort . UW.MV)
+  HeapPartialSort -> do
+    partialSortSuite "partial heap sort: classic" g n k heapPSort
+    partialSortSuite "partial heap sort: specialized" g n k
+      (BH.partialSort . UW.MV)
+  HeapSelect -> do
+    partialSortSuite "heap select: classic" g n k heapSelect
+    partialSortSuite "heap select: specialized" g n k (BH.select . UW.MV)
   MergeSort -> do
     sortSuite "merge sort: classic" g n mergeSort
     sortSuite "merge sort: specialized" g n (BM.sort . UW.MV)
